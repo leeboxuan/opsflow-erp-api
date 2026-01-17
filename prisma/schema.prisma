@@ -69,6 +69,7 @@ model Tenant {
   stops           Stop[]
   pods            Pod[]
   eventLogs       EventLog[]
+  vehicles        Vehicle[]
 
   @@map("tenants")
 }
@@ -77,6 +78,7 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
+  phone     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -128,20 +130,41 @@ model TransportOrder {
 }
 
 model Trip {
-  id             String     @id @default(cuid())
-  tenantId       String
-  status         TripStatus @default(Draft)
-  plannedStartAt DateTime?
-  plannedEndAt   DateTime?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id               String     @id @default(cuid())
+  tenantId         String
+  status           TripStatus @default(Draft)
+  plannedStartAt   DateTime?
+  plannedEndAt     DateTime?
+  assignedDriverId String?
+  assignedVehicleId String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  stops  Stop[]
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stops         Stop[]
+  assignedVehicle Vehicle? @relation(fields: [assignedVehicleId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, status])
   @@index([tenantId, plannedStartAt])
+  @@index([tenantId, assignedDriverId])
   @@map("trips")
+}
+
+model Vehicle {
+  id             String   @id @default(cuid())
+  tenantId       String
+  vehicleNumber  String
+  type           String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  trips  Trip[]
+
+  @@unique([tenantId, vehicleNumber])
+  @@index([tenantId])
+  @@map("vehicles")
 }
 
 model Stop {

@@ -17,6 +17,8 @@ import { Roles } from '../auth/guards/role.guard';
 import { TripService } from './trip.service';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { TripDto } from './dto/trip.dto';
+import { AssignDriverDto } from '../driver/dto/assign-driver.dto';
+import { AssignVehicleDto } from '../driver/dto/assign-vehicle.dto';
 import { Role } from '@prisma/client';
 
 @ApiTags('transport')
@@ -110,5 +112,31 @@ export class TripController {
   ) {
     const tenantId = req.tenant.tenantId;
     return this.tripService.getTripEvents(tenantId, id);
+  }
+
+  @Post(':tripId/assign-driver')
+  @UseGuards(RoleGuard)
+  @Roles(Role.Admin, Role.Ops)
+  @ApiOperation({ summary: 'Assign driver to trip (Admin/Ops only)' })
+  async assignDriver(
+    @Request() req: any,
+    @Param('tripId') tripId: string,
+    @Body() dto: AssignDriverDto,
+  ): Promise<TripDto> {
+    const tenantId = req.tenant.tenantId;
+    return this.tripService.assignDriver(tenantId, tripId, dto.driverUserId);
+  }
+
+  @Post(':tripId/assign-vehicle')
+  @UseGuards(RoleGuard)
+  @Roles(Role.Admin, Role.Ops)
+  @ApiOperation({ summary: 'Assign vehicle to trip (Admin/Ops only)' })
+  async assignVehicle(
+    @Request() req: any,
+    @Param('tripId') tripId: string,
+    @Body() dto: AssignVehicleDto,
+  ): Promise<TripDto> {
+    const tenantId = req.tenant.tenantId;
+    return this.tripService.assignVehicle(tenantId, tripId, dto);
   }
 }

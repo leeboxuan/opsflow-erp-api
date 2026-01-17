@@ -7,6 +7,8 @@ import { TenantsModule } from './tenants/tenants.module';
 import { HealthModule } from './health/health.module';
 import { TransportModule } from './transport/transport.module';
 import { DriversModule } from './drivers/drivers.module';
+import { AdminModule } from './admin/admin.module';
+import { DriverModule } from './driver/driver.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { DriversModule } from './drivers/drivers.module';
     HealthModule,
     TransportModule,
     DriversModule,
+    AdminModule,
+    DriverModule,
   ],
   controllers: [AppController],
 })

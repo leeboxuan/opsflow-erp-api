@@ -20,5 +20,6 @@ import { AuthModule } from '../auth/auth.module';
     StopService,
     EventLogService,
   ],
+  exports: [TripService],
 })
 export class TransportModule {}
