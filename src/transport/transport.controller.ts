@@ -1,0 +1,67 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Request,
+  NotFoundException,
+} from '@nestjs/common';
+import { AuthGuard } from '../auth/guards/auth.guard';
+import { TenantGuard } from '../auth/guards/tenant.guard';
+import { TransportService } from './transport.service';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { OrderDto } from './dto/order.dto';
+import { TripDto } from './dto/trip.dto';
+
+@Controller('transport/orders')
+@UseGuards(AuthGuard, TenantGuard)
+export class TransportController {
+  constructor(private readonly transportService: TransportService) {}
+
+  @Post()
+  async createOrder(
+    @Request() req: any,
+    @Body() dto: CreateOrderDto,
+  ): Promise<OrderDto> {
+    const tenantId = req.tenant.tenantId;
+    return this.transportService.createOrder(tenantId, dto);
+  }
+
+  @Get()
+  async listOrders(
+    @Request() req: any,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ): Promise<{ orders: OrderDto[]; nextCursor?: string }> {
+    const tenantId = req.tenant.tenantId;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.transportService.listOrders(tenantId, cursor, limitNum);
+  }
+
+  @Get(':id')
+  async getOrder(
+    @Request() req: any,
+    @Param('id') id: string,
+  ): Promise<OrderDto> {
+    const tenantId = req.tenant.tenantId;
+    const order = await this.transportService.getOrderById(tenantId, id);
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return order;
+  }
+
+  @Post(':orderId/plan-trip')
+  async planTrip(
+    @Request() req: any,
+    @Param('orderId') orderId: string,
+  ): Promise<TripDto> {
+    const tenantId = req.tenant.tenantId;
+    return this.transportService.planTripFromOrder(tenantId, orderId);
+  }
+}

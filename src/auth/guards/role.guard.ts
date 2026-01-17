@@ -1,0 +1,42 @@
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  SetMetadata,
+  ForbiddenException,
+} from '@nestjs/common';
+import { Role } from '@prisma/client';
+
+export const Roles = (...roles: Role[]) => SetMetadata('roles', roles);
+
+@Injectable()
+export class RoleGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    const requiredRoles = this.getRoles(context);
+
+    if (!requiredRoles || requiredRoles.length === 0) {
+      return true; // No roles required
+    }
+
+    const tenant = request.tenant;
+    if (!tenant || !tenant.role) {
+      throw new ForbiddenException(
+        'Tenant context not found. TenantGuard must be applied first.',
+      );
+    }
+
+    const userRole = tenant.role;
+    if (!requiredRoles.includes(userRole)) {
+      throw new ForbiddenException(
+        `Required role: ${requiredRoles.join(' or ')}`,
+      );
+    }
+
+    return true;
+  }
+
+  private getRoles(context: ExecutionContext): Role[] {
+    return Reflect.getMetadata('roles', context.getHandler()) || [];
+  }
+}
