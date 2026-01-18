@@ -15,11 +15,13 @@ import { TenantGuard } from '../auth/guards/tenant.guard';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { Roles } from '../auth/guards/role.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { LocationService } from '../driver/location.service';
 import { Role, MembershipStatus } from '@prisma/client';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { DriverDto } from './dto/driver.dto';
 import { VehicleDto } from './dto/vehicle.dto';
+import { DriverLocationDto } from '../driver/dto/location.dto';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -27,7 +29,10 @@ import { VehicleDto } from './dto/vehicle.dto';
 @Roles(Role.Admin, Role.Ops)
 @ApiBearerAuth('JWT-auth')
 export class AdminController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly locationService: LocationService,
+  ) {}
 
   @Get('drivers')
   @ApiOperation({ summary: 'List all drivers (Admin/Ops only)' })
@@ -205,5 +210,12 @@ export class AdminController {
       createdAt: vehicle.createdAt,
       updatedAt: vehicle.updatedAt,
     };
+  }
+
+  @Get('locations')
+  @ApiOperation({ summary: 'Get all driver locations (Admin/Ops only)' })
+  async getLocations(@Request() req: any): Promise<DriverLocationDto[]> {
+    const tenantId = req.tenant.tenantId;
+    return this.locationService.getAllDriverLocations(tenantId);
   }
 }

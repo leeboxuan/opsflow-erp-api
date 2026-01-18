@@ -70,6 +70,7 @@ model Tenant {
   pods            Pod[]
   eventLogs       EventLog[]
   vehicles        Vehicle[]
+  driverLocations DriverLocationLatest[]
 
   @@map("tenants")
 }
@@ -226,6 +227,25 @@ model EventLog {
   @@index([tenantId, entityType, entityId])
   @@index([tenantId, createdAt])
   @@map("event_logs")
+}
+
+model DriverLocationLatest {
+  id           String   @id @default(cuid())
+  tenantId     String
+  driverUserId String
+  lat          Float
+  lng          Float
+  accuracy     Float?
+  heading      Float?
+  speed        Float?
+  capturedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, driverUserId])
+  @@index([tenantId, updatedAt])
+  @@map("driver_location_latest")
 }
 
 // Future business entities (commented out until needed):

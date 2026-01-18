@@ -16,8 +16,11 @@ import { RoleGuard } from '../auth/guards/role.guard';
 import { Roles } from '../auth/guards/role.guard';
 import { TripService } from '../transport/trip.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { LocationService } from './location.service';
 import { Role } from '@prisma/client';
 import { AssignVehicleDto } from './dto/assign-vehicle.dto';
+import { UpdateLocationDto } from './dto/update-location.dto';
+import { LocationDto } from './dto/location.dto';
 import { TripDto } from '../transport/dto/trip.dto';
 
 @ApiTags('driver')
@@ -29,6 +32,7 @@ export class DriverController {
   constructor(
     private readonly tripService: TripService,
     private readonly prisma: PrismaService,
+    private readonly locationService: LocationService,
   ) {}
 
   @Get('trips')
@@ -79,5 +83,37 @@ export class DriverController {
     }
 
     return this.tripService.assignVehicle(tenantId, tripId, dto);
+  }
+
+  @Post('location')
+  @ApiOperation({ summary: 'Update driver location' })
+  async updateLocation(
+    @Request() req: any,
+    @Body() dto: UpdateLocationDto,
+  ): Promise<LocationDto> {
+    const tenantId = req.tenant.tenantId;
+    const userId = req.user.userId;
+
+    return this.locationService.upsertLocation(tenantId, userId, dto);
+  }
+
+  @Get('location/me')
+  @ApiOperation({ summary: 'Get my latest location' })
+  async getMyLocation(
+    @Request() req: any,
+  ): Promise<LocationDto | { message: string }> {
+    const tenantId = req.tenant.tenantId;
+    const userId = req.user.userId;
+
+    const location = await this.locationService.getLatestLocation(
+      tenantId,
+      userId,
+    );
+
+    if (!location) {
+      return { message: 'No location data available' };
+    }
+
+    return location;
   }
 }
