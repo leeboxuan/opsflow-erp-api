@@ -1,6 +1,12 @@
 # OpsFlow ERP API
 
-Standalone NestJS REST API for the Transport Management System.
+Standalone NestJS REST API for the Transport Management System. It **consumes** an existing database and uses Supabase only for authentication and JWT verification.
+
+**Constraints:**
+- This repo does **not** own database schema or migrations (those live in **cargo-erp**).
+- Prisma client is used only to read/write data. Do not run `prisma migrate` or create new migrations here.
+- All tenant-scoped access uses `tenantId` from the authenticated user context (`X-Tenant-Id` header + membership check).
+- **Superadmin** (JWT `app_metadata.global_role === 'SUPERADMIN'`) is not tenant-bound: `X-Tenant-Id` is optional; when provided, the superadmin acts in that tenant’s context.
 
 ## Quick Start
 
@@ -15,17 +21,12 @@ Standalone NestJS REST API for the Transport Management System.
    # Edit .env with your configuration
    ```
 
-3. **Generate Prisma Client:**
+3. **Generate Prisma Client** (schema is kept in sync with cargo-erp; no migrations run here):
    ```bash
    pnpm prisma:generate
    ```
 
-4. **Run database migrations:**
-   ```bash
-   pnpm prisma:migrate
-   ```
-
-5. **Start development server:**
+4. **Start development server:**
    ```bash
    pnpm dev
    ```
@@ -63,19 +64,18 @@ See `.env.example` for required environment variables.
 - `pnpm dev` - Start development server with hot reload
 - `pnpm build` - Build for production
 - `pnpm start:prod` - Run production build
-- `pnpm prisma:generate` - Generate Prisma Client
-- `pnpm prisma:migrate` - Run database migrations
-- `pnpm prisma:migrate:deploy` - Deploy migrations (production)
+- `pnpm prisma:generate` - Generate Prisma Client (run after schema changes from cargo-erp)
 - `pnpm prisma:studio` - Open Prisma Studio
 - `pnpm prisma:seed` - Seed database (requires SUPABASE_USER_EMAIL env var)
+
+**Note:** Do not run `prisma migrate` in this repo; schema and migrations are owned by cargo-erp.
 
 ## Project Structure
 
 ```
-_export_api/
-├── prisma/           # Prisma schema and migrations
+├── prisma/           # Prisma schema (synced with cargo-erp); client only, no migrations from this repo
 │   ├── schema.prisma
-│   ├── migrations/
+│   ├── migrations/   # Existing migration history (apply in cargo-erp)
 │   └── seed.ts
 ├── src/              # NestJS application source
 │   ├── auth/         # Authentication module

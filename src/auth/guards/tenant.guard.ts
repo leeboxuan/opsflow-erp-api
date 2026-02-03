@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { MembershipStatus } from '@prisma/client';
+import { MembershipStatus, Role } from '@prisma/client';
 
 @Injectable()
 export class TenantGuard implements CanActivate {
@@ -14,21 +14,53 @@ export class TenantGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const tenantId = request.headers['x-tenant-id'];
-
-    if (!tenantId) {
-      throw new BadRequestException('X-Tenant-Id header is required');
-    }
-
+    const tenantIdHeader = request.headers['x-tenant-id'];
     const user = request.user;
+
     if (!user || !user.userId) {
       throw new ForbiddenException('User must be authenticated first');
     }
 
-    // Verify user membership in tenant using userId from req.user
+    // Superadmin (from JWT app_metadata) is not tenant-bound: X-Tenant-Id is optional
+    if (user.isSuperadmin) {
+      if (!tenantIdHeader) {
+        request.tenant = {
+          tenantId: null,
+          role: Role.Admin,
+          isSuperadmin: true,
+        };
+        return true;
+      }
+      // Superadmin with tenant header: act in that tenant's context
+      const tenant = await this.prisma.tenant.findFirst({
+        where: { id: tenantIdHeader },
+      });
+      if (!tenant) {
+        throw new BadRequestException('Tenant not found');
+      }
+      const membership = await this.prisma.tenantMembership.findFirst({
+        where: {
+          tenantId: tenantIdHeader,
+          userId: user.userId,
+          status: MembershipStatus.Active,
+        },
+      });
+      request.tenant = {
+        tenantId: tenantIdHeader,
+        role: membership?.role ?? Role.Admin,
+        isSuperadmin: true,
+      };
+      return true;
+    }
+
+    // Non-superadmin: X-Tenant-Id required and user must be an active member
+    if (!tenantIdHeader) {
+      throw new BadRequestException('X-Tenant-Id header is required');
+    }
+
     const membership = await this.prisma.tenantMembership.findFirst({
       where: {
-        tenantId,
+        tenantId: tenantIdHeader,
         userId: user.userId,
         status: MembershipStatus.Active,
       },
@@ -43,10 +75,10 @@ export class TenantGuard implements CanActivate {
       );
     }
 
-    // Attach { tenantId, role } to request.tenant
     request.tenant = {
-      tenantId: tenantId,
+      tenantId: tenantIdHeader,
       role: membership.role,
+      isSuperadmin: false,
     };
 
     return true;

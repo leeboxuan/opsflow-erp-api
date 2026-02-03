@@ -1,5 +1,10 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
+//
+// IMPORTANT: This repo does NOT own the database schema or migrations.
+// Schema and migrations are defined in cargo-erp. This file is kept in sync
+// for Prisma client only. Do not run prisma migrate dev/deploy or create
+// new migrations from this repo.
 
 generator client {
   provider = "prisma-client-js"

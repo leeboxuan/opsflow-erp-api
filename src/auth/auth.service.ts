@@ -16,6 +16,8 @@ export interface JwtPayload {
 export interface AuthUser {
   userId: string;
   email: string;
+  /** True when JWT app_metadata.global_role === 'SUPERADMIN' (set in cargo-erp/Supabase). */
+  isSuperadmin?: boolean;
 }
 
 @Injectable()
@@ -82,6 +84,9 @@ export class AuthService {
         return null;
       }
 
+      const appMetadata = (payload as any).app_metadata as Record<string, unknown> | undefined;
+      const isSuperadmin = appMetadata?.global_role === 'SUPERADMIN';
+
       // Find or create user in database
       const user = await this.prisma.user.upsert({
         where: { email: payload.email as string },
@@ -95,6 +100,7 @@ export class AuthService {
       return {
         userId: user.id,
         email: user.email,
+        isSuperadmin: isSuperadmin ?? false,
       };
     } catch {
       return null;
@@ -116,6 +122,9 @@ export class AuthService {
         return null;
       }
 
+      const appMetadata = decoded.app_metadata as Record<string, unknown> | undefined;
+      const isSuperadmin = appMetadata?.global_role === 'SUPERADMIN';
+
       // Find or create user in database
       const user = await this.prisma.user.upsert({
         where: { email: decoded.email },
@@ -129,6 +138,7 @@ export class AuthService {
       return {
         userId: user.id,
         email: user.email,
+        isSuperadmin: isSuperadmin ?? false,
       };
     } catch (error) {
       // JWT verification failed
