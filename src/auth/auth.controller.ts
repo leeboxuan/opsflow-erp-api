@@ -16,6 +16,8 @@ import { AuthGuard } from './guards/auth.guard';
 import { TenantGuard } from './guards/tenant.guard';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RefreshResponseDto } from './dto/refresh-response.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MembershipStatus } from '@prisma/client';
 
@@ -56,7 +58,10 @@ export class AuthController {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    // From Supabase session (do not log tokens)
     const accessToken = data.session.access_token;
+    const refreshToken = data.session.refresh_token ?? '';
+    const expiresAt = data.session.expires_at ?? 0;
 
     // Use AuthService to map Supabase auth user (sub) to public.users via authUserId
     const authUser = await this.authService.verifyToken(accessToken);
@@ -76,14 +81,54 @@ export class AuthController {
       },
     });
 
+    const user = {
+      id: authUser.userId,
+      email: authUser.email,
+      role: membership?.role ?? null,
+      tenantId: membership?.tenantId ?? undefined,
+    };
+
     return {
       accessToken,
-      user: {
-        id: authUser.userId,
-        email: authUser.email,
-        role: membership?.role || null,
-        tenantId: membership?.tenantId || undefined,
-      },
+      refreshToken,
+      expiresAt,
+      user,
+    };
+  }
+
+  @Post('refresh')
+  @ApiOperation({ summary: 'Refresh session using refresh token' })
+  async refresh(@Body() dto: RefreshTokenDto): Promise<RefreshResponseDto> {
+    const supabaseUrl =
+      this.configService.get<string>('SUPABASE_PROJECT_URL') ||
+      this.configService.get<string>('SUPABASE_URL') ||
+      '';
+    const supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY') || '';
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new UnauthorizedException('Supabase configuration is missing');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    const { data, error } = await supabase.auth.refreshSession({
+      refresh_token: dto.refreshToken,
+    });
+
+    if (error) {
+      throw new UnauthorizedException(
+        error.message || 'Invalid or expired refresh token',
+      );
+    }
+
+    if (!data.session) {
+      throw new UnauthorizedException('Session refresh failed');
+    }
+
+    return {
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token ?? '',
+      expiresAt: data.session.expires_at ?? 0,
     };
   }
 

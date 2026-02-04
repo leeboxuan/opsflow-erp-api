@@ -5,19 +5,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting database seed...\n');
 
-  // Get Supabase user email from environment or prompt
-  const supabaseUserEmail = process.env.SUPABASE_USER_EMAIL;
-
-  if (!supabaseUserEmail) {
-    console.error('❌ SUPABASE_USER_EMAIL environment variable is required');
-    console.log('\nPlease set SUPABASE_USER_EMAIL to the email of the logged-in Supabase user.');
-    console.log('Example: SUPABASE_USER_EMAIL=user@example.com pnpm db:seed\n');
-    process.exit(1);
-  }
-
-  console.log(`📧 Using Supabase user email: ${supabaseUserEmail}\n`);
-
-  // Create or get tenant
+  // Create or get tenant (idempotent)
   const tenant = await prisma.tenant.upsert({
     where: { slug: 'demo-logistics' },
     update: {},
@@ -29,24 +17,38 @@ async function main() {
 
   console.log(`✅ Tenant: ${tenant.name} (${tenant.slug})`);
 
-  // Create or get user
-  const user = await prisma.user.upsert({
-    where: { email: supabaseUserEmail },
+  // Create admin user (idempotent)
+  const adminEmail = 'admin@demo.com';
+  const adminUser = await prisma.user.upsert({
+    where: { email: adminEmail },
     update: {},
     create: {
-      email: supabaseUserEmail,
-      name: null,
+      email: adminEmail,
+      name: 'Demo Admin',
     },
   });
 
-  console.log(`✅ User: ${user.email}`);
+  console.log(`✅ Admin User: ${adminUser.email}`);
 
-  // Create or get membership
-  const membership = await prisma.tenantMembership.upsert({
+  // Create driver user (idempotent)
+  const driverEmail = 'driver@demo.com';
+  const driverUser = await prisma.user.upsert({
+    where: { email: driverEmail },
+    update: {},
+    create: {
+      email: driverEmail,
+      name: 'Demo Driver',
+    },
+  });
+
+  console.log(`✅ Driver User: ${driverUser.email}`);
+
+  // Create admin membership (idempotent)
+  const adminMembership = await prisma.tenantMembership.upsert({
     where: {
       tenantId_userId: {
         tenantId: tenant.id,
-        userId: user.id,
+        userId: adminUser.id,
       },
     },
     update: {
@@ -55,19 +57,47 @@ async function main() {
     },
     create: {
       tenantId: tenant.id,
-      userId: user.id,
+      userId: adminUser.id,
       role: Role.Admin,
       status: MembershipStatus.Active,
     },
   });
 
-  console.log(`✅ Membership: ${user.email} → ${tenant.name} (${membership.role})\n`);
+  console.log(`✅ Admin Membership: ${adminUser.email} → ${tenant.name} (${adminMembership.role})`);
+
+  // Create driver membership (idempotent)
+  const driverMembership = await prisma.tenantMembership.upsert({
+    where: {
+      tenantId_userId: {
+        tenantId: tenant.id,
+        userId: driverUser.id,
+      },
+    },
+    update: {
+      role: Role.Driver,
+      status: MembershipStatus.Active,
+    },
+    create: {
+      tenantId: tenant.id,
+      userId: driverUser.id,
+      role: Role.Driver,
+      status: MembershipStatus.Active,
+    },
+  });
+
+  console.log(`✅ Driver Membership: ${driverUser.email} → ${tenant.name} (${driverMembership.role})\n`);
 
   console.log('🎉 Seed completed successfully!\n');
-  console.log('You can now use:');
-  console.log(`  - Tenant ID: ${tenant.id}`);
-  console.log(`  - Tenant Slug: ${tenant.slug}`);
-  console.log(`  - User Email: ${user.email}\n`);
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('📊 Seeded Data:');
+  console.log('═══════════════════════════════════════════════════════════\n');
+  console.log(`Tenant ID: ${tenant.id}\n`);
+  console.log(`Admin User:`);
+  console.log(`  Email: ${adminUser.email}`);
+  console.log(`  ID: ${adminUser.id}\n`);
+  console.log(`Driver User:`);
+  console.log(`  Email: ${driverUser.email}`);
+  console.log(`  ID: ${driverUser.id}\n`);
 }
 
 main()
