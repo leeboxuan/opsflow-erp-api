@@ -11,6 +11,7 @@ export interface JwtPayload {
 export interface AuthUser {
     userId: string;
     email: string;
+    isSuperadmin?: boolean;
 }
 export declare class AuthService {
     private readonly configService;

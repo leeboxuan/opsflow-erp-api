@@ -94,6 +94,8 @@ let AuthService = class AuthService {
             if (!payload.email || !payload.sub) {
                 return null;
             }
+            const appMetadata = payload.app_metadata;
+            const isSuperadmin = appMetadata?.global_role === 'SUPERADMIN';
             const user = await this.prisma.user.upsert({
                 where: { email: payload.email },
                 update: {},
@@ -105,6 +107,7 @@ let AuthService = class AuthService {
             return {
                 userId: user.id,
                 email: user.email,
+                isSuperadmin: isSuperadmin ?? false,
             };
         }
         catch {
@@ -121,6 +124,8 @@ let AuthService = class AuthService {
             if (!decoded.email || !decoded.sub) {
                 return null;
             }
+            const appMetadata = decoded.app_metadata;
+            const isSuperadmin = appMetadata?.global_role === 'SUPERADMIN';
             const user = await this.prisma.user.upsert({
                 where: { email: decoded.email },
                 update: {},
@@ -132,6 +137,7 @@ let AuthService = class AuthService {
             return {
                 userId: user.id,
                 email: user.email,
+                isSuperadmin: isSuperadmin ?? false,
             };
         }
         catch (error) {

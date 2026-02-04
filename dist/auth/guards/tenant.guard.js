@@ -19,17 +19,46 @@ let TenantGuard = class TenantGuard {
     }
     async canActivate(context) {
         const request = context.switchToHttp().getRequest();
-        const tenantId = request.headers['x-tenant-id'];
-        if (!tenantId) {
-            throw new common_1.BadRequestException('X-Tenant-Id header is required');
-        }
+        const tenantIdHeader = request.headers['x-tenant-id'];
         const user = request.user;
         if (!user || !user.userId) {
             throw new common_1.ForbiddenException('User must be authenticated first');
         }
+        if (user.isSuperadmin) {
+            if (!tenantIdHeader) {
+                request.tenant = {
+                    tenantId: null,
+                    role: client_1.Role.Admin,
+                    isSuperadmin: true,
+                };
+                return true;
+            }
+            const tenant = await this.prisma.tenant.findFirst({
+                where: { id: tenantIdHeader },
+            });
+            if (!tenant) {
+                throw new common_1.BadRequestException('Tenant not found');
+            }
+            const membership = await this.prisma.tenantMembership.findFirst({
+                where: {
+                    tenantId: tenantIdHeader,
+                    userId: user.userId,
+                    status: client_1.MembershipStatus.Active,
+                },
+            });
+            request.tenant = {
+                tenantId: tenantIdHeader,
+                role: membership?.role ?? client_1.Role.Admin,
+                isSuperadmin: true,
+            };
+            return true;
+        }
+        if (!tenantIdHeader) {
+            throw new common_1.BadRequestException('X-Tenant-Id header is required');
+        }
         const membership = await this.prisma.tenantMembership.findFirst({
             where: {
-                tenantId,
+                tenantId: tenantIdHeader,
                 userId: user.userId,
                 status: client_1.MembershipStatus.Active,
             },
@@ -41,8 +70,9 @@ let TenantGuard = class TenantGuard {
             throw new common_1.ForbiddenException('User is not a member of this tenant or membership is not Active');
         }
         request.tenant = {
-            tenantId: tenantId,
+            tenantId: tenantIdHeader,
             role: membership.role,
+            isSuperadmin: false,
         };
         return true;
     }
