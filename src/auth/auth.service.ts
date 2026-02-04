@@ -14,10 +14,16 @@ export interface JwtPayload {
 }
 
 export interface AuthUser {
+  /** Internal app user id (public.users.id, cuid) */
   userId: string;
+  /** Supabase auth user id (auth.users.id, UUID) */
+  authUserId: string;
+  /** User email from JWT / public.users.email */
   email: string;
-  /** True when JWT app_metadata.global_role === 'SUPERADMIN' (set in cargo-erp/Supabase). */
-  isSuperadmin?: boolean;
+  /** Global app role from public.users.role (e.g. 'USER', 'SUPERADMIN') */
+  role: string;
+  /** True when role === 'SUPERADMIN' (platform-level access) */
+  isSuperadmin: boolean;
 }
 
 @Injectable()
@@ -83,24 +89,57 @@ export class AuthService {
       if (!payload.email || !payload.sub) {
         return null;
       }
+      const email = payload.email as string;
+      const authUserId = payload.sub as string;
 
-      const appMetadata = (payload as any).app_metadata as Record<string, unknown> | undefined;
-      const isSuperadmin = appMetadata?.global_role === 'SUPERADMIN';
-
-      // Find or create user in database
-      const user = await this.prisma.user.upsert({
-        where: { email: payload.email as string },
-        update: {},
-        create: {
-          email: payload.email as string,
-          name: null,
-        },
+      // Map Supabase auth user (sub) -> public.users via authUserId
+      let user = await this.prisma.user.findFirst({
+        where: { authUserId } as any,
       });
+
+      // Fallback for older rows without authUserId: match by email
+      if (!user) {
+        user = await this.prisma.user.findFirst({
+          where: { email },
+        });
+      }
+
+      if (!user) {
+        // First time we see this auth user: create app user row
+        user = await this.prisma.user.create({
+          data: {
+            email,
+            name: null,
+            authUserId,
+            role: 'USER',
+          } as any,
+        });
+      } else {
+        // Backfill authUserId / role defaults if missing
+        const updates: any = {};
+        if (!(user as any).authUserId) {
+          updates.authUserId = authUserId;
+        }
+        if (!(user as any).role) {
+          updates.role = 'USER';
+        }
+        if (Object.keys(updates).length > 0) {
+          user = await this.prisma.user.update({
+            where: { id: user.id },
+            data: updates as any,
+          });
+        }
+      }
+
+      const role = (user as any).role || 'USER';
+      const isSuperadmin = role === 'SUPERADMIN';
 
       return {
         userId: user.id,
+        authUserId,
         email: user.email,
-        isSuperadmin: isSuperadmin ?? false,
+        role,
+        isSuperadmin,
       };
     } catch {
       return null;
@@ -121,24 +160,53 @@ export class AuthService {
       if (!decoded.email || !decoded.sub) {
         return null;
       }
+      const email = decoded.email as string;
+      const authUserId = decoded.sub as string;
 
-      const appMetadata = decoded.app_metadata as Record<string, unknown> | undefined;
-      const isSuperadmin = appMetadata?.global_role === 'SUPERADMIN';
-
-      // Find or create user in database
-      const user = await this.prisma.user.upsert({
-        where: { email: decoded.email },
-        update: {},
-        create: {
-          email: decoded.email,
-          name: null,
-        },
+      let user = await this.prisma.user.findFirst({
+        where: { authUserId } as any,
       });
+
+      if (!user) {
+        user = await this.prisma.user.findFirst({
+          where: { email },
+        });
+      }
+
+      if (!user) {
+        user = await this.prisma.user.create({
+          data: {
+            email,
+            name: null,
+            authUserId,
+            role: 'USER',
+          } as any,
+        });
+      } else {
+        const updates: any = {};
+        if (!(user as any).authUserId) {
+          updates.authUserId = authUserId;
+        }
+        if (!(user as any).role) {
+          updates.role = 'USER';
+        }
+        if (Object.keys(updates).length > 0) {
+          user = await this.prisma.user.update({
+            where: { id: user.id },
+            data: updates as any,
+          });
+        }
+      }
+
+      const role = (user as any).role || 'USER';
+      const isSuperadmin = role === 'SUPERADMIN';
 
       return {
         userId: user.id,
+        authUserId,
         email: user.email,
-        isSuperadmin: isSuperadmin ?? false,
+        role,
+        isSuperadmin,
       };
     } catch (error) {
       // JWT verification failed

@@ -89,15 +89,20 @@ model Tenant {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String?
+  phone      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  /// Supabase auth user id (auth.users.id), UUID, unique
+  authUserId String?  @unique @map("auth_user_id") @db.Uuid
+
+  /// Application-level role for this user (e.g. 'USER', 'SUPERADMIN')
+  role       String   @default("USER")
 
   memberships TenantMembership[]
-  // Future: Supabase auth user ID will be stored here or linked via email
 
   @@index([email])
   @@map("users")

@@ -47,17 +47,14 @@ let AuthController = class AuthController {
         if (error || !data.session) {
             throw new common_1.UnauthorizedException('Invalid email or password');
         }
-        const user = await this.prisma.user.upsert({
-            where: { email: dto.email },
-            update: {},
-            create: {
-                email: dto.email,
-                name: null,
-            },
-        });
+        const accessToken = data.session.access_token;
+        const authUser = await this.authService.verifyToken(accessToken);
+        if (!authUser) {
+            throw new common_1.UnauthorizedException('Unable to map authenticated user');
+        }
         const membership = await this.prisma.tenantMembership.findFirst({
             where: {
-                userId: user.id,
+                userId: authUser.userId,
                 status: client_1.MembershipStatus.Active,
             },
             include: {
@@ -65,28 +62,52 @@ let AuthController = class AuthController {
             },
         });
         return {
-            accessToken: data.session.access_token,
+            accessToken,
             user: {
-                id: user.id,
-                email: user.email,
+                id: authUser.userId,
+                email: authUser.email,
                 role: membership?.role || null,
                 tenantId: membership?.tenantId || undefined,
             },
         };
     }
     async getMe(req) {
-        const userId = req.user.userId;
-        const currentTenantId = req.tenant.tenantId;
-        const currentRole = req.tenant.role;
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
+        const authUserId = req.user.authUserId;
+        if (!authUserId) {
+            throw new common_1.UnauthorizedException('Missing auth user id');
+        }
+        let user = await this.prisma.user.findFirst({
+            where: { authUserId },
         });
+        if (!user) {
+            const email = req.user.email;
+            if (!email) {
+                throw new common_1.UnauthorizedException('User not found');
+            }
+            user = await this.prisma.user.findFirst({
+                where: { email },
+            });
+        }
         if (!user) {
             throw new common_1.UnauthorizedException('User not found');
         }
+        const updates = {};
+        if (!user.authUserId) {
+            updates.authUserId = authUserId;
+        }
+        if (!user.role) {
+            updates.role = 'USER';
+        }
+        if (Object.keys(updates).length > 0) {
+            user = await this.prisma.user.update({
+                where: { id: user.id },
+                data: updates,
+            });
+        }
+        const effectiveRole = user.role || 'USER';
         const memberships = await this.prisma.tenantMembership.findMany({
             where: {
-                userId,
+                userId: user.id,
             },
             include: {
                 tenant: {
@@ -100,7 +121,7 @@ let AuthController = class AuthController {
                 createdAt: 'desc',
             },
         });
-        const membershipsSummary = memberships.map((membership) => ({
+        const tenantMemberships = memberships.map((membership) => ({
             tenantId: membership.tenantId,
             role: membership.role,
             status: membership.status,
@@ -112,9 +133,9 @@ let AuthController = class AuthController {
         return {
             id: user.id,
             email: user.email,
-            role: currentRole,
-            tenantId: currentTenantId,
-            memberships: membershipsSummary,
+            role: effectiveRole,
+            authUserId: user.authUserId,
+            tenantMemberships,
         };
     }
 };

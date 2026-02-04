@@ -27,11 +27,9 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired token');
     }
 
-    // Attach { userId, email } to request
-    request.user = {
-      userId: user.userId,
-      email: user.email,
-    };
+    // Attach full app user identity to request
+    // { userId, authUserId, email, role, isSuperadmin }
+    request.user = user;
 
     return true;
   }

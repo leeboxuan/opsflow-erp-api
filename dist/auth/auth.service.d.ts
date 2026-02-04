@@ -10,8 +10,10 @@ export interface JwtPayload {
 }
 export interface AuthUser {
     userId: string;
+    authUserId: string;
     email: string;
-    isSuperadmin?: boolean;
+    role: string;
+    isSuperadmin: boolean;
 }
 export declare class AuthService {
     private readonly configService;

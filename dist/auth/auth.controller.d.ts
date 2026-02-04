@@ -15,8 +15,8 @@ export declare class AuthController {
         id: string;
         email: string;
         role: any;
-        tenantId: any;
-        memberships: {
+        authUserId: any;
+        tenantMemberships: {
             tenantId: string;
             role: import("@prisma/client").$Enums.Role;
             status: import("@prisma/client").$Enums.MembershipStatus;

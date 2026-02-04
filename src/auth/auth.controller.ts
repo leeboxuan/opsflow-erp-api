@@ -56,20 +56,19 @@ export class AuthController {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    // Find or create user in our database
-    const user = await this.prisma.user.upsert({
-      where: { email: dto.email },
-      update: {},
-      create: {
-        email: dto.email,
-        name: null,
-      },
-    });
+    const accessToken = data.session.access_token;
+
+    // Use AuthService to map Supabase auth user (sub) to public.users via authUserId
+    const authUser = await this.authService.verifyToken(accessToken);
+
+    if (!authUser) {
+      throw new UnauthorizedException('Unable to map authenticated user');
+    }
 
     // Get the user's first active tenant membership (if any)
     const membership = await this.prisma.tenantMembership.findFirst({
       where: {
-        userId: user.id,
+        userId: authUser.userId,
         status: MembershipStatus.Active,
       },
       include: {
@@ -78,10 +77,10 @@ export class AuthController {
     });
 
     return {
-      accessToken: data.session.access_token,
+      accessToken,
       user: {
-        id: user.id,
-        email: user.email,
+        id: authUser.userId,
+        email: authUser.email,
         role: membership?.role || null,
         tenantId: membership?.tenantId || undefined,
       },
@@ -93,23 +92,52 @@ export class AuthController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get current user and tenant information' })
   async getMe(@Request() req: any) {
-    const userId = req.user.userId;
-    const currentTenantId = req.tenant.tenantId;
-    const currentRole = req.tenant.role;
+    const authUserId: string | undefined = req.user.authUserId;
 
-    // Get user details
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+    if (!authUserId) {
+      throw new UnauthorizedException('Missing auth user id');
+    }
+
+    // Look up app user by authUserId (Supabase sub), backfilling defaults if needed
+    let user = await this.prisma.user.findFirst({
+      where: { authUserId } as any,
     });
+
+    if (!user) {
+      // As a fallback, try by email from request
+      const email = req.user.email;
+      if (!email) {
+        throw new UnauthorizedException('User not found');
+      }
+      user = await this.prisma.user.findFirst({
+        where: { email },
+      });
+    }
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
+    const updates: any = {};
+    if (!(user as any).authUserId) {
+      updates.authUserId = authUserId;
+    }
+    if (!(user as any).role) {
+      updates.role = 'USER';
+    }
+    if (Object.keys(updates).length > 0) {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: updates as any,
+      });
+    }
+
+    const effectiveRole = (user as any).role || 'USER';
+
     // Get all memberships for the user
     const memberships = await this.prisma.tenantMembership.findMany({
       where: {
-        userId,
+        userId: user.id,
       },
       include: {
         tenant: {
@@ -124,8 +152,7 @@ export class AuthController {
       },
     });
 
-    // Format memberships
-    const membershipsSummary = memberships.map((membership) => ({
+    const tenantMemberships = memberships.map((membership) => ({
       tenantId: membership.tenantId,
       role: membership.role,
       status: membership.status,
@@ -138,9 +165,9 @@ export class AuthController {
     return {
       id: user.id,
       email: user.email,
-      role: currentRole, // Role for current active tenant
-      tenantId: currentTenantId, // Current active tenant
-      memberships: membershipsSummary,
+      role: effectiveRole,                // global app role, never null
+      authUserId: (user as any).authUserId, // Supabase auth user id
+      tenantMemberships,
     };
   }
 }

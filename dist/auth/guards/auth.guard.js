@@ -27,10 +27,7 @@ let AuthGuard = class AuthGuard {
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid or expired token');
         }
-        request.user = {
-            userId: user.userId,
-            email: user.email,
-        };
+        request.user = user;
         return true;
     }
 };

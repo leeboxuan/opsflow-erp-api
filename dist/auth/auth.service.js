@@ -94,20 +94,49 @@ let AuthService = class AuthService {
             if (!payload.email || !payload.sub) {
                 return null;
             }
-            const appMetadata = payload.app_metadata;
-            const isSuperadmin = appMetadata?.global_role === 'SUPERADMIN';
-            const user = await this.prisma.user.upsert({
-                where: { email: payload.email },
-                update: {},
-                create: {
-                    email: payload.email,
-                    name: null,
-                },
+            const email = payload.email;
+            const authUserId = payload.sub;
+            let user = await this.prisma.user.findFirst({
+                where: { authUserId },
             });
+            if (!user) {
+                user = await this.prisma.user.findFirst({
+                    where: { email },
+                });
+            }
+            if (!user) {
+                user = await this.prisma.user.create({
+                    data: {
+                        email,
+                        name: null,
+                        authUserId,
+                        role: 'USER',
+                    },
+                });
+            }
+            else {
+                const updates = {};
+                if (!user.authUserId) {
+                    updates.authUserId = authUserId;
+                }
+                if (!user.role) {
+                    updates.role = 'USER';
+                }
+                if (Object.keys(updates).length > 0) {
+                    user = await this.prisma.user.update({
+                        where: { id: user.id },
+                        data: updates,
+                    });
+                }
+            }
+            const role = user.role || 'USER';
+            const isSuperadmin = role === 'SUPERADMIN';
             return {
                 userId: user.id,
+                authUserId,
                 email: user.email,
-                isSuperadmin: isSuperadmin ?? false,
+                role,
+                isSuperadmin,
             };
         }
         catch {
@@ -124,20 +153,49 @@ let AuthService = class AuthService {
             if (!decoded.email || !decoded.sub) {
                 return null;
             }
-            const appMetadata = decoded.app_metadata;
-            const isSuperadmin = appMetadata?.global_role === 'SUPERADMIN';
-            const user = await this.prisma.user.upsert({
-                where: { email: decoded.email },
-                update: {},
-                create: {
-                    email: decoded.email,
-                    name: null,
-                },
+            const email = decoded.email;
+            const authUserId = decoded.sub;
+            let user = await this.prisma.user.findFirst({
+                where: { authUserId },
             });
+            if (!user) {
+                user = await this.prisma.user.findFirst({
+                    where: { email },
+                });
+            }
+            if (!user) {
+                user = await this.prisma.user.create({
+                    data: {
+                        email,
+                        name: null,
+                        authUserId,
+                        role: 'USER',
+                    },
+                });
+            }
+            else {
+                const updates = {};
+                if (!user.authUserId) {
+                    updates.authUserId = authUserId;
+                }
+                if (!user.role) {
+                    updates.role = 'USER';
+                }
+                if (Object.keys(updates).length > 0) {
+                    user = await this.prisma.user.update({
+                        where: { id: user.id },
+                        data: updates,
+                    });
+                }
+            }
+            const role = user.role || 'USER';
+            const isSuperadmin = role === 'SUPERADMIN';
             return {
                 userId: user.id,
+                authUserId,
                 email: user.email,
-                isSuperadmin: isSuperadmin ?? false,
+                role,
+                isSuperadmin,
             };
         }
         catch (error) {
