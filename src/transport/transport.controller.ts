@@ -39,6 +39,8 @@ export class TransportController {
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
   ): Promise<{ orders: OrderDto[]; nextCursor?: string }> {
+    // Extract tenantId from request context (set by TenantGuard)
+    // tenantId is REQUIRED - all roles must operate under a tenant
     const tenantId = req.tenant.tenantId;
     const limitNum = limit ? parseInt(limit, 10) : 20;
     return this.transportService.listOrders(tenantId, cursor, limitNum);

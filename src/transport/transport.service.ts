@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderStatus, TransportOrder, TripStatus, StopType } from '@prisma/client';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -43,6 +43,14 @@ export class TransportService {
     cursor?: string,
     limit: number = 20,
   ): Promise<{ orders: OrderDto[]; nextCursor?: string }> {
+    // Temporary debug log to verify request flow
+    console.log('[Transport] tenantId:', tenantId);
+    
+    // tenantId is REQUIRED - all roles must operate under a tenant
+    if (!tenantId || tenantId === null || tenantId === undefined) {
+      throw new BadRequestException('tenantId is required');
+    }
+
     const take = Math.min(limit, 100); // Max 100 per page
 
     const where = {

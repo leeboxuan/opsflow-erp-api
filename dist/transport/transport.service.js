@@ -43,6 +43,9 @@ let TransportService = class TransportService {
         return this.toDto(order);
     }
     async listOrders(tenantId, cursor, limit = 20) {
+        if (!tenantId || tenantId === null || tenantId === undefined) {
+            throw new common_1.BadRequestException('tenantId is required');
+        }
         const take = Math.min(limit, 100);
         const where = {
             tenantId,
