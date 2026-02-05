@@ -26,8 +26,7 @@ Use `.env.local` for local development (the app loads `.env.local` then `.env`).
 
 | Variable | Required | Where to get it |
 |----------|----------|-----------------|
-| `DATABASE_URL` | Yes | Supabase → Project Settings → Database → **Connection pooling** (Session mode, port 5432) — used by the app at runtime |
-| `DIRECT_URL` | Yes (Render) | Supabase → Project Settings → Database → **Direct connection** URI (host `db.XXX.supabase.co:5432`). Required for `prisma migrate deploy` on Render to avoid P1002 advisory lock timeout when using the pooler. |
+| `DATABASE_URL` | Yes | Supabase → Project Settings → Database → Connection string (Session mode pooler, port 5432) |
 | `SUPABASE_PROJECT_URL` | Yes | Supabase → Project Settings → API → Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase → Project Settings → API → `service_role` secret |
 | `SUPABASE_JWT_SECRET` | Optional | Supabase → Project Settings → API → JWT Secret (for legacy HS256 tokens) |
@@ -39,7 +38,6 @@ Use `.env.local` for local development (the app loads `.env.local` then `.env`).
 `render.yaml` defines build, release, and start. No need to copy commands manually.
 
 - **Build:** `pnpm install --frozen-lockfile && pnpm prisma:generate && pnpm build`
-- **Release:** `pnpm prisma:migrate:deploy` (runs before each deploy so DB stays in sync)
 - **Start:** `pnpm start`
 
 Set all env vars in Render dashboard (Environment) so they match your `.env.local` keys.
@@ -52,25 +50,18 @@ Set all env vars in Render dashboard (Environment) so they match your `.env.loca
 
 2. **Render**  
    - Env vars must match what the code expects (see table above).  
-   - `DATABASE_URL` = Supabase **pooler** (Session mode).  
-   - `DIRECT_URL` = Supabase **direct** connection (same password; host `db.<project-ref>.supabase.co`). Migrations use this to avoid P1002 timeout.  
-   - `SUPABASE_PROJECT_URL` + `SUPABASE_SERVICE_ROLE_KEY` = same Supabase project as DB.  
-   - After changing Prisma migrations, push code; Render runs `prisma migrate deploy` on release.
+   - `DATABASE_URL` = Supabase session pooler.  
+   - `SUPABASE_PROJECT_URL` + `SUPABASE_SERVICE_ROLE_KEY` = same Supabase project as DB.
 
 3. **Local**  
-   - `.env.local` should mirror Render (different values OK, same keys).  
-   - Run `pnpm prisma:migrate` for schema changes; then commit migrations so Render’s release runs them in prod.
+   - `.env.local` should mirror Render (different values OK, same keys).
 
 4. **Quick check**  
    - Health: `GET https://opsflow-erp-api.onrender.com/api/health` (or your Render URL).  
    - Swagger: `https://opsflow-erp-api.onrender.com/api/docs`.  
    - If auth fails, verify Supabase project URL and keys on Render match the project that owns the DB.
 
-## Prisma migrations
+## Prisma and schema
 
-- **Development:** `pnpm prisma:migrate`
-- **Production (Render):** runs automatically via `releaseCommand: pnpm prisma:migrate:deploy`
-
-Prisma uses `DIRECT_URL` for migrations (see `schema.prisma`). If you see **P1002** (timeout acquiring advisory lock) on Render, set `DIRECT_URL` in Render’s Environment to Supabase’s **direct** connection string (not the pooler).
-
-> If you manage schema in Supabase instead, you can skip Prisma migrate and use Prisma only for type-safe access.
+- **Client generation:** `pnpm prisma:generate` (runs in build; uses `DATABASE_URL`).
+- **Migrations:** Prisma migrations are **not** run via CLI against Supabase. Schema changes are applied via **Supabase SQL Editor** or by generating a SQL diff (e.g. `prisma migrate diff`) and running it in Supabase. The app uses `DATABASE_URL` (session pooler) only.

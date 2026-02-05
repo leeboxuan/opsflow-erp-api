@@ -46,17 +46,9 @@ pnpm prisma:generate
 
 This generates the Prisma Client based on the schema in `prisma/schema.prisma`.
 
-## Step 6: Run Database Migrations
+## Step 6: Database schema
 
-If this is a new database:
-```bash
-pnpm prisma:migrate
-```
-
-If you're deploying to production:
-```bash
-pnpm prisma:migrate:deploy
-```
+Prisma migrations are **not** run via CLI against Supabase. Apply schema changes via **Supabase SQL Editor** or by generating a SQL diff (e.g. `prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --script`) and running the output in Supabase.
 
 ## Step 7: (Optional) Seed Database
 

@@ -4,18 +4,12 @@ services:
     env: node
     plan: starter
     buildCommand: pnpm install --frozen-lockfile && pnpm prisma:generate && pnpm build
-    # Run migrations against Supabase Postgres before each deploy
-    releaseCommand: pnpm prisma:migrate:deploy
     startCommand: pnpm start
     envVars:
       - key: NODE_VERSION
         value: 20
-      # Database: use pooler for app runtime (better connection handling)
+      # Database (Supabase session pooler)
       - key: DATABASE_URL
-        sync: false
-      # Direct DB URL for migrations only (avoids P1002 advisory lock timeout with pooler)
-      # In Supabase: Project Settings → Database → "Direct connection" URI (host db.XXX.supabase.co:5432)
-      - key: DIRECT_URL
         sync: false
       # Supabase Auth (required for JWT verification and admin APIs)
       - key: SUPABASE_PROJECT_URL
