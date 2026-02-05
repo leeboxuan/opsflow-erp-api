@@ -42,7 +42,7 @@ export class DriverMvpService {
     const trips = await this.prisma.trip.findMany({
       where: {
         tenantId,
-        assignedDriverId: driverUserId,
+        assignedDriverUserId: driverUserId,
         plannedStartAt: {
           gte: dayStart,
           lt: dayEnd,
@@ -58,7 +58,7 @@ export class DriverMvpService {
             pods: { take: 1, orderBy: { createdAt: 'desc' } },
           },
         },
-        assignedVehicle: true,
+        vehicles: true,
       },
     });
 
@@ -70,9 +70,9 @@ export class DriverMvpService {
         status: trip.status,
         plannedStartAt: trip.plannedStartAt,
         plannedEndAt: trip.plannedEndAt,
-        assignedDriverId: trip.assignedDriverId,
-        assignedVehicleId: trip.assignedVehicleId,
-        trailerNo: trip.trailerNo,
+        assignedDriverId: trip.assignedDriverUserId,
+        assignedVehicleId: trip.vehicleId,
+        trailerNo: trip.acceptedTrailerNo ?? trip.acceptedVehicleNo ?? null,
         startedAt: trip.startedAt,
         closedAt: trip.closedAt,
         stops: trip.stops.map((s) => this.toDriverStopDto(s)),
@@ -163,7 +163,7 @@ export class DriverMvpService {
     dto: AcceptTripDto,
   ): Promise<DriverTripDto> {
     const trip = await this.prisma.trip.findFirst({
-      where: { id: tripId, tenantId, assignedDriverId: driverUserId },
+      where: { id: tripId, tenantId, assignedDriverUserId: driverUserId },
       include: {
         stops: {
           orderBy: { sequence: 'asc' },
@@ -183,7 +183,7 @@ export class DriverMvpService {
       );
     }
 
-    let assignedVehicleId = trip.assignedVehicleId;
+    let vehicleId = trip.vehicleId;
     if (dto.vehicleNo) {
       const vehicle = await this.prisma.vehicle.findFirst({
         where: {
@@ -194,15 +194,16 @@ export class DriverMvpService {
       if (!vehicle) {
         throw new NotFoundException('Vehicle not found');
       }
-      assignedVehicleId = vehicle.id;
+      vehicleId = vehicle.id;
     }
 
     const updated = await this.prisma.trip.update({
       where: { id: tripId },
       data: {
         status: TripStatus.Dispatched,
-        assignedVehicleId: assignedVehicleId ?? undefined,
-        trailerNo: dto.trailerNo ?? trip.trailerNo,
+        vehicleId: vehicleId ?? undefined,
+        acceptedVehicleNo: dto.vehicleNo ?? trip.acceptedVehicleNo ?? undefined,
+        acceptedTrailerNo: dto.trailerNo ?? trip.acceptedTrailerNo ?? undefined,
       },
       include: {
         stops: {
@@ -218,7 +219,7 @@ export class DriverMvpService {
     await this.eventLogService.logEvent(tenantId, 'Trip', tripId, 'TRIP_ACCEPTED', {
       vehicleNo: dto.vehicleNo,
       trailerNo: dto.trailerNo,
-      assignedVehicleId: updated.assignedVehicleId,
+      vehicleId: updated.vehicleId,
     });
 
     const lockState = this.computeLockState(updated.stops, updated.status);
@@ -227,9 +228,9 @@ export class DriverMvpService {
       status: updated.status,
       plannedStartAt: updated.plannedStartAt,
       plannedEndAt: updated.plannedEndAt,
-      assignedDriverId: updated.assignedDriverId,
-      assignedVehicleId: updated.assignedVehicleId,
-      trailerNo: updated.trailerNo,
+      assignedDriverId: updated.assignedDriverUserId,
+      assignedVehicleId: updated.vehicleId,
+      trailerNo: updated.acceptedTrailerNo ?? updated.acceptedVehicleNo ?? null,
       startedAt: updated.startedAt,
       closedAt: updated.closedAt,
       stops: updated.stops.map((s) => this.toDriverStopDto(s)),
@@ -248,7 +249,7 @@ export class DriverMvpService {
     tripId: string,
   ): Promise<DriverTripDto> {
     const trip = await this.prisma.trip.findFirst({
-      where: { id: tripId, tenantId, assignedDriverId: driverUserId },
+      where: { id: tripId, tenantId, assignedDriverUserId: driverUserId },
       include: {
         stops: { orderBy: { sequence: 'asc' }, include: { transportOrder: true, podPhotoDocuments: true } },
       },
@@ -285,9 +286,9 @@ export class DriverMvpService {
       status: updated.status,
       plannedStartAt: updated.plannedStartAt,
       plannedEndAt: updated.plannedEndAt,
-      assignedDriverId: updated.assignedDriverId,
-      assignedVehicleId: updated.assignedVehicleId,
-      trailerNo: updated.trailerNo,
+      assignedDriverId: updated.assignedDriverUserId,
+      assignedVehicleId: updated.vehicleId,
+      trailerNo: updated.acceptedTrailerNo ?? updated.acceptedVehicleNo ?? null,
       startedAt: updated.startedAt,
       closedAt: updated.closedAt,
       stops: updated.stops.map((s) => this.toDriverStopDto(s)),
@@ -316,7 +317,7 @@ export class DriverMvpService {
     if (!stop) {
       throw new NotFoundException('Stop not found');
     }
-    if (stop.trip.assignedDriverId !== driverUserId) {
+    if (stop.trip.assignedDriverUserId !== driverUserId) {
       throw new ForbiddenException('Stop is not on a trip assigned to you');
     }
     if (stop.status !== StopStatus.Pending) {
@@ -324,7 +325,7 @@ export class DriverMvpService {
     }
 
     const prevStops = await this.prisma.stop.findMany({
-      where: { tripId: stop.tripId, tenantId, sequence: { lt: stop.sequence } },
+      where: { tripId: stop.tripId!, tenantId, sequence: { lt: stop.sequence! } },
       orderBy: { sequence: 'desc' },
       take: 1,
     });
@@ -370,7 +371,7 @@ export class DriverMvpService {
     if (!stop) {
       throw new NotFoundException('Stop not found');
     }
-    if (stop.trip.assignedDriverId !== driverUserId) {
+    if (stop.trip.assignedDriverUserId !== driverUserId) {
       throw new ForbiddenException('Stop is not on a trip assigned to you');
     }
     if (stop.status === StopStatus.Completed) {
@@ -378,7 +379,7 @@ export class DriverMvpService {
     }
 
     const maxSequence = await this.prisma.stop.aggregate({
-      where: { tripId: stop.tripId },
+      where: { tripId: stop.tripId! },
       _max: { sequence: true },
     });
     const isFinalStop = maxSequence._max.sequence === stop.sequence;
@@ -411,23 +412,28 @@ export class DriverMvpService {
 
       if (isFinalStop) {
         await tx.trip.update({
-          where: { id: stop.tripId },
+          where: { id: stop.tripId! },
           data: {
             status: TripStatus.Delivered,
             closedAt: new Date(),
           },
         });
-        await tx.driverWalletTransaction.create({
-          data: {
-            tenantId,
-            driverUserId,
-            tripId: stop.tripId,
-            amountCents: 0,
-            currency: 'SGD',
-            type: 'TripCompleted',
-            description: `Trip ${stop.tripId} completed`,
-          },
+        const driver = await tx.drivers.findFirst({
+          where: { tenantId, userId: driverUserId },
         });
+        if (driver) {
+          await tx.driverWalletTransaction.create({
+            data: {
+              tenantId,
+              driverId: driver.id,
+              tripId: stop.tripId!,
+              amountCents: 0,
+              currency: 'SGD',
+              type: 'TripCompleted',
+              description: `Trip ${stop.tripId} completed`,
+            },
+          });
+        }
       }
 
       return tx.stop.findUnique({
@@ -463,10 +469,21 @@ export class DriverMvpService {
     const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0, 0));
     const end = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0));
 
+    const driver = await this.prisma.drivers.findFirst({
+      where: { tenantId, userId: driverUserId },
+    });
+    if (!driver) {
+      return {
+        month,
+        transactions: [],
+        totalCents: 0,
+      };
+    }
+
     const transactions = await this.prisma.driverWalletTransaction.findMany({
       where: {
         tenantId,
-        driverUserId,
+        driverId: driver.id,
         createdAt: { gte: start, lt: end },
       },
       orderBy: { createdAt: 'desc' },

@@ -60,7 +60,7 @@ export class AdminController {
         id: membership.user.id,
         email: membership.user.email,
         name: membership.user.name,
-        phone: membership.user.phone,
+        phone: (membership.user as { phone?: string | null }).phone ?? null,
         role: membership.role,
         membershipId: membership.id,
         createdAt: membership.user.createdAt,
@@ -77,17 +77,15 @@ export class AdminController {
   ): Promise<DriverDto> {
     const tenantId = req.tenant.tenantId;
 
-    // Find or create user
+    // Find or create user (User model has no phone in DB schema)
     const user = await this.prisma.user.upsert({
       where: { email: dto.email },
       update: {
         name: dto.name || undefined,
-        phone: dto.phone || undefined,
       },
       create: {
         email: dto.email,
         name: dto.name || null,
-        phone: dto.phone || null,
       },
     });
 
@@ -115,7 +113,7 @@ export class AdminController {
         id: user.id,
         email: user.email,
         name: user.name,
-        phone: user.phone,
+        phone: (user as { phone?: string | null }).phone ?? dto.phone ?? null,
         role: membership.role,
         membershipId: membership.id,
         createdAt: user.createdAt,
@@ -137,7 +135,7 @@ export class AdminController {
       id: user.id,
       email: user.email,
       name: user.name,
-      phone: user.phone,
+      phone: dto.phone ?? null,
       role: membership.role,
       membershipId: membership.id,
       createdAt: user.createdAt,
@@ -161,7 +159,7 @@ export class AdminController {
       (vehicle): VehicleDto => ({
         id: vehicle.id,
         vehicleNumber: vehicle.vehicleNumber,
-        type: vehicle.type,
+        type: (vehicle as { type?: string | null }).type ?? null,
         notes: vehicle.notes,
         createdAt: vehicle.createdAt,
         updatedAt: vehicle.updatedAt,
@@ -197,7 +195,6 @@ export class AdminController {
       data: {
         tenantId,
         vehicleNumber: dto.vehicleNumber,
-        type: dto.type || null,
         notes: dto.notes || null,
       },
     });
@@ -205,7 +202,7 @@ export class AdminController {
     return {
       id: vehicle.id,
       vehicleNumber: vehicle.vehicleNumber,
-      type: vehicle.type,
+      type: dto.type ?? null,
       notes: vehicle.notes,
       createdAt: vehicle.createdAt,
       updatedAt: vehicle.updatedAt,

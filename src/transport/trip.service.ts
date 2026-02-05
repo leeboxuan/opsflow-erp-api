@@ -149,7 +149,7 @@ export class TripService {
             },
           },
         },
-        assignedVehicle: true,
+        vehicles: true,
       },
     });
 
@@ -195,7 +195,7 @@ export class TripService {
             },
           },
         },
-        assignedVehicle: true,
+        vehicles: true,
       },
     });
 
@@ -215,11 +215,11 @@ export class TripService {
   private async toDto(trip: any, stops: any[]): Promise<TripDto> {
     // Get driver info if assigned
     let assignedDriver: DriverInfoDto | null = null;
-    if (trip.assignedDriverId) {
+    if (trip.assignedDriverUserId) {
       const membership = await this.prisma.tenantMembership.findFirst({
         where: {
           tenantId: trip.tenantId,
-          userId: trip.assignedDriverId,
+          userId: trip.assignedDriverUserId,
           status: MembershipStatus.Active,
         },
         include: {
@@ -227,22 +227,23 @@ export class TripService {
         },
       });
       if (membership) {
+        const user = membership.user as { id: string; email: string; name: string | null; phone?: string | null };
         assignedDriver = {
-          id: membership.user.id,
-          email: membership.user.email,
-          name: membership.user.name,
-          phone: membership.user.phone,
+          id: user.id,
+          email: user.email,
+          name: user.name ?? null,
+          phone: user.phone ?? null,
         };
       }
     }
 
     // Get vehicle info if assigned
     let assignedVehicle: VehicleInfoDto | null = null;
-    if (trip.assignedVehicle) {
+    if (trip.vehicles) {
       assignedVehicle = {
-        id: trip.assignedVehicle.id,
-        vehicleNumber: trip.assignedVehicle.vehicleNumber,
-        type: trip.assignedVehicle.type,
+        id: trip.vehicles.id,
+        vehicleNumber: trip.vehicles.vehicleNumber,
+        type: trip.vehicles.type ?? null,
       };
     }
 
@@ -251,8 +252,8 @@ export class TripService {
       status: trip.status,
       plannedStartAt: trip.plannedStartAt,
       plannedEndAt: trip.plannedEndAt,
-      assignedDriverId: trip.assignedDriverId,
-      assignedVehicleId: trip.assignedVehicleId,
+      assignedDriverId: trip.assignedDriverUserId,
+      assignedVehicleId: trip.vehicleId,
       assignedDriver,
       assignedVehicle,
       createdAt: trip.createdAt,
@@ -444,7 +445,7 @@ export class TripService {
 
     const where = {
       tenantId,
-      assignedDriverId: driverUserId,
+      assignedDriverUserId: driverUserId,
       ...(cursor && {
         id: {
           gt: cursor,
@@ -472,7 +473,7 @@ export class TripService {
             },
           },
         },
-        assignedVehicle: true,
+        vehicles: true,
       },
     });
 
@@ -534,7 +535,7 @@ export class TripService {
     // Update trip with assigned driver
     const updatedTrip = await this.prisma.trip.update({
       where: { id: tripId },
-      data: { assignedDriverId: driverUserId },
+      data: { assignedDriverUserId: driverUserId },
       include: {
         stops: {
           orderBy: {
@@ -549,7 +550,7 @@ export class TripService {
             },
           },
         },
-        assignedVehicle: true,
+        vehicles: true,
       },
     });
 
@@ -611,7 +612,7 @@ export class TripService {
     // Update trip with assigned vehicle
     const updatedTrip = await this.prisma.trip.update({
       where: { id: tripId },
-      data: { assignedVehicleId: vehicle.id },
+      data: { vehicleId: vehicle.id },
       include: {
         stops: {
           orderBy: {
@@ -626,7 +627,7 @@ export class TripService {
             },
           },
         },
-        assignedVehicle: true,
+        vehicles: true,
       },
     });
 

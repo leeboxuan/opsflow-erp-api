@@ -18,6 +18,7 @@ export class TransportService {
       data: {
         tenantId,
         customerRef: dto.customerRef,
+        orderRef: dto.orderRef ?? dto.customerRef,
         status: OrderStatus.Draft,
         pickupWindowStart: dto.pickupWindowStart
           ? new Date(dto.pickupWindowStart)
@@ -31,7 +32,7 @@ export class TransportService {
         deliveryWindowEnd: dto.deliveryWindowEnd
           ? new Date(dto.deliveryWindowEnd)
           : null,
-        notes: dto.notes,
+        notes: dto.notes ?? null,
       },
     });
 
@@ -238,7 +239,7 @@ export class TransportService {
             },
           },
         },
-        assignedVehicle: true,
+        vehicles: true,
       },
     });
 
@@ -318,14 +319,14 @@ export class TransportService {
       status: trip.status,
       plannedStartAt: trip.plannedStartAt,
       plannedEndAt: trip.plannedEndAt,
-      assignedDriverId: trip.assignedDriverId || null,
-      assignedVehicleId: trip.assignedVehicleId || null,
+      assignedDriverId: trip.assignedDriverUserId ?? null,
+      assignedVehicleId: trip.vehicleId ?? null,
       assignedDriver: null, // TransportService doesn't load driver/vehicle details
-      assignedVehicle: trip.assignedVehicle
+      assignedVehicle: trip.vehicles
         ? {
-            id: trip.assignedVehicle.id,
-            vehicleNumber: trip.assignedVehicle.vehicleNumber,
-            type: trip.assignedVehicle.type,
+            id: trip.vehicles.id,
+            vehicleNumber: trip.vehicles.vehicleNumber,
+            type: trip.vehicles.type ?? null,
           }
         : null,
       createdAt: trip.createdAt,

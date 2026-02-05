@@ -126,7 +126,7 @@ export class DriverController {
       where: {
         id: tripId,
         tenantId,
-        assignedDriverId: userId,
+        assignedDriverUserId: userId,
       },
     });
 

@@ -74,17 +74,17 @@ model TransportOrder {
   notes                      String?
   createdAt                  DateTime                  @default(now())
   updatedAt                  DateTime                  @updatedAt
-  currency                   String?                   @default("SGD")
   priceCents                 Int?
-  orderRef                   String
+  currency                   String?                   @default("SGD")
   customerName               String?
-  itemsJson                  Json?
-  doStatus                   DoStatus                  @default(PENDING)
+  doDocumentUrl              String?
+  doSignatureUrl             String?
   doSignedAt                 DateTime?
   doSignerName               String?
-  doSignatureUrl             String?
-  doDocumentUrl              String?
+  doStatus                   DoStatus                  @default(PENDING)
   doVersion                  Int                       @default(1)
+  itemsJson                  Json?
+  orderRef                   String
   driver_wallet_transactions DriverWalletTransaction[]
   stops                      Stop[]                    @relation("OrderStops")
   tenant                     Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -103,14 +103,14 @@ model Trip {
   plannedEndAt         DateTime?
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
-  acceptedTrailerNo    String?
-  acceptedVehicleNo    String?
-  driverId             String?
-  vehicleId            String?
-  routeVersion         Int                       @default(1)
-  assignedDriverUserId String?
   closedAt             DateTime?
   startedAt            DateTime?
+  acceptedTrailerNo    String?
+  acceptedVehicleNo    String?
+  assignedDriverUserId String?
+  driverId             String?
+  routeVersion         Int                       @default(1)
+  vehicleId            String?
   walletTransactions   DriverWalletTransaction[]
   stops                Stop[]
   drivers              drivers?                  @relation(fields: [driverId], references: [id])
@@ -205,15 +205,15 @@ model PodPhotoDocument {
 model DriverWalletTransaction {
   id               String          @id @default(cuid())
   tenantId         String
-  driverId         String
+  tripId           String?
   amountCents      Int
   currency         String          @default("SGD")
   type             String
   description      String?
-  tripId           String?
-  transportOrderId String?
-  stopId           String?
   createdAt        DateTime        @default(now())
+  driverId         String
+  stopId           String?
+  transportOrderId String?
   drivers          drivers         @relation(fields: [driverId], references: [id], onDelete: Cascade)
   stops            Stop?           @relation(fields: [stopId], references: [id])
   tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)

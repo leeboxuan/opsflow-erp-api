@@ -5,6 +5,10 @@ export class CreateOrderDto {
   customerRef: string;
 
   @IsOptional()
+  @IsString()
+  orderRef?: string;
+
+  @IsOptional()
   @IsDateString()
   pickupWindowStart?: string;
 
