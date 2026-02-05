@@ -73,7 +73,9 @@ export class AuthController {
           'SUPABASE_JWT_SECRET missing – cannot verify Supabase access token',
         );
       }
-      throw new UnauthorizedException('Unable to map authenticated user');
+      throw new UnauthorizedException(
+        'User mapping failed: could not find or create internal user for this Supabase Auth user',
+      );
     }
 
     // Get the user's first active tenant membership (if any)

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { jwtVerify, createRemoteJWKSet, decodeProtectedHeader } from 'jose';
@@ -28,6 +28,7 @@ export interface AuthUser {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private jwksUrl: string;
   private issuer: string;
   private jwks: ReturnType<typeof createRemoteJWKSet>;
@@ -90,18 +91,24 @@ export class AuthService {
         audience: 'authenticated',
       });
 
-      if (!payload.email || !payload.sub) {
+      const authUserId = payload.sub as string | undefined;
+      const email = payload.email as string | undefined;
+
+      if (!authUserId) {
+        this.logger.error('JWT sub (authUserId) missing – cannot map Supabase Auth user to internal user');
         return null;
       }
-      const email = payload.email as string;
-      const authUserId = payload.sub as string;
+      if (!email) {
+        this.logger.error('JWT email missing – cannot map or create internal user');
+        return null;
+      }
 
-      // Map Supabase auth user (sub) -> public.users via authUserId
+      // Map Supabase Auth user (JWT sub, UUID) to public.users via authUserId; id remains cuid
       let user = await this.prisma.user.findFirst({
-        where: { authUserId } as any,
+        where: { authUserId },
       });
 
-      // Fallback for older rows without authUserId: match by email
+      // Fallback for legacy rows that have no authUserId yet: match by email then backfill
       if (!user) {
         user = await this.prisma.user.findFirst({
           where: { email },
@@ -109,33 +116,33 @@ export class AuthService {
       }
 
       if (!user) {
-        // First time we see this auth user: create app user row
+        // First login: auto-create internal user linked to this Supabase Auth user
         user = await this.prisma.user.create({
           data: {
-            email,
-            name: null,
             authUserId,
+            email,
+            name: email, // temporary default until profile is set
             role: 'USER',
-          } as any,
+          },
         });
       } else {
-        // Backfill authUserId / role defaults if missing
-        const updates: any = {};
-        if (!(user as any).authUserId) {
+        // Backfill authUserId if missing (legacy row)
+        const updates: { authUserId?: string; role?: string } = {};
+        if (!user.authUserId) {
           updates.authUserId = authUserId;
         }
-        if (!(user as any).role) {
+        if (!user.role) {
           updates.role = 'USER';
         }
         if (Object.keys(updates).length > 0) {
           user = await this.prisma.user.update({
             where: { id: user.id },
-            data: updates as any,
+            data: updates,
           });
         }
       }
 
-      const role = (user as any).role || 'USER';
+      const role = user.role ?? 'USER';
       const isSuperadmin = role === 'SUPERADMIN';
 
       return {
@@ -145,7 +152,8 @@ export class AuthService {
         role,
         isSuperadmin,
       };
-    } catch {
+    } catch (err) {
+      this.logger.warn('User mapping failed: token verification or DB lookup/create failed', (err as Error)?.message ?? err);
       return null;
     }
   }
@@ -162,17 +170,23 @@ export class AuthService {
     }
 
     try {
-      // Verify and decode JWT using symmetric key
       const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
 
-      if (!decoded.email || !decoded.sub) {
+      const authUserId = decoded.sub;
+      const email = decoded.email;
+
+      if (!authUserId) {
+        this.logger.error('JWT sub (authUserId) missing – cannot map Supabase Auth user to internal user');
         return null;
       }
-      const email = decoded.email as string;
-      const authUserId = decoded.sub as string;
+      if (!email) {
+        this.logger.error('JWT email missing – cannot map or create internal user');
+        return null;
+      }
 
+      // Map by authUserId first (JWT sub); fallback to email for legacy rows
       let user = await this.prisma.user.findFirst({
-        where: { authUserId } as any,
+        where: { authUserId },
       });
 
       if (!user) {
@@ -184,29 +198,29 @@ export class AuthService {
       if (!user) {
         user = await this.prisma.user.create({
           data: {
-            email,
-            name: null,
             authUserId,
+            email,
+            name: email, // temporary default until profile is set
             role: 'USER',
-          } as any,
+          },
         });
       } else {
-        const updates: any = {};
-        if (!(user as any).authUserId) {
+        const updates: { authUserId?: string; role?: string } = {};
+        if (!user.authUserId) {
           updates.authUserId = authUserId;
         }
-        if (!(user as any).role) {
+        if (!user.role) {
           updates.role = 'USER';
         }
         if (Object.keys(updates).length > 0) {
           user = await this.prisma.user.update({
             where: { id: user.id },
-            data: updates as any,
+            data: updates,
           });
         }
       }
 
-      const role = (user as any).role || 'USER';
+      const role = user.role ?? 'USER';
       const isSuperadmin = role === 'SUPERADMIN';
 
       return {
@@ -217,7 +231,7 @@ export class AuthService {
         isSuperadmin,
       };
     } catch (error) {
-      // JWT verification failed
+      this.logger.warn('User mapping failed (legacy HS256): verification or DB failed', (error as Error)?.message ?? error);
       return null;
     }
   }

@@ -56,7 +56,7 @@ let AuthController = class AuthController {
             if (!jwtSecret) {
                 throw new common_1.UnauthorizedException('SUPABASE_JWT_SECRET missing – cannot verify Supabase access token');
             }
-            throw new common_1.UnauthorizedException('Unable to map authenticated user');
+            throw new common_1.UnauthorizedException('User mapping failed: could not find or create internal user for this Supabase Auth user');
         }
         const membership = await this.prisma.tenantMembership.findFirst({
             where: {

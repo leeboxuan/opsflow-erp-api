@@ -41,6 +41,7 @@ var __importStar = (this && this.__importStar) || (function () {
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var AuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
@@ -48,10 +49,11 @@ const config_1 = require("@nestjs/config");
 const prisma_service_1 = require("../prisma/prisma.service");
 const jose_1 = require("jose");
 const jwt = __importStar(require("jsonwebtoken"));
-let AuthService = class AuthService {
+let AuthService = AuthService_1 = class AuthService {
     constructor(configService, prisma) {
         this.configService = configService;
         this.prisma = prisma;
+        this.logger = new common_1.Logger(AuthService_1.name);
         const projectUrl = this.configService.get('SUPABASE_PROJECT_URL') ||
             this.configService.get('SUPABASE_URL');
         const projectRef = this.configService.get('SUPABASE_PROJECT_REF');
@@ -92,11 +94,16 @@ let AuthService = class AuthService {
                 issuer: this.issuer,
                 audience: 'authenticated',
             });
-            if (!payload.email || !payload.sub) {
+            const authUserId = payload.sub;
+            const email = payload.email;
+            if (!authUserId) {
+                this.logger.error('JWT sub (authUserId) missing – cannot map Supabase Auth user to internal user');
                 return null;
             }
-            const email = payload.email;
-            const authUserId = payload.sub;
+            if (!email) {
+                this.logger.error('JWT email missing – cannot map or create internal user');
+                return null;
+            }
             let user = await this.prisma.user.findFirst({
                 where: { authUserId },
             });
@@ -108,9 +115,9 @@ let AuthService = class AuthService {
             if (!user) {
                 user = await this.prisma.user.create({
                     data: {
-                        email,
-                        name: null,
                         authUserId,
+                        email,
+                        name: email,
                         role: 'USER',
                     },
                 });
@@ -130,7 +137,7 @@ let AuthService = class AuthService {
                     });
                 }
             }
-            const role = user.role || 'USER';
+            const role = user.role ?? 'USER';
             const isSuperadmin = role === 'SUPERADMIN';
             return {
                 userId: user.id,
@@ -140,7 +147,8 @@ let AuthService = class AuthService {
                 isSuperadmin,
             };
         }
-        catch {
+        catch (err) {
+            this.logger.warn('User mapping failed: token verification or DB lookup/create failed', err?.message ?? err);
             return null;
         }
     }
@@ -151,11 +159,16 @@ let AuthService = class AuthService {
         }
         try {
             const decoded = jwt.verify(token, jwtSecret);
-            if (!decoded.email || !decoded.sub) {
+            const authUserId = decoded.sub;
+            const email = decoded.email;
+            if (!authUserId) {
+                this.logger.error('JWT sub (authUserId) missing – cannot map Supabase Auth user to internal user');
                 return null;
             }
-            const email = decoded.email;
-            const authUserId = decoded.sub;
+            if (!email) {
+                this.logger.error('JWT email missing – cannot map or create internal user');
+                return null;
+            }
             let user = await this.prisma.user.findFirst({
                 where: { authUserId },
             });
@@ -167,9 +180,9 @@ let AuthService = class AuthService {
             if (!user) {
                 user = await this.prisma.user.create({
                     data: {
-                        email,
-                        name: null,
                         authUserId,
+                        email,
+                        name: email,
                         role: 'USER',
                     },
                 });
@@ -189,7 +202,7 @@ let AuthService = class AuthService {
                     });
                 }
             }
-            const role = user.role || 'USER';
+            const role = user.role ?? 'USER';
             const isSuperadmin = role === 'SUPERADMIN';
             return {
                 userId: user.id,
@@ -200,12 +213,13 @@ let AuthService = class AuthService {
             };
         }
         catch (error) {
+            this.logger.warn('User mapping failed (legacy HS256): verification or DB failed', error?.message ?? error);
             return null;
         }
     }
 };
 exports.AuthService = AuthService;
-exports.AuthService = AuthService = __decorate([
+exports.AuthService = AuthService = AuthService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [config_1.ConfigService,
         prisma_service_1.PrismaService])

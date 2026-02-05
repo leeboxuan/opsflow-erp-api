@@ -18,6 +18,7 @@ export interface AuthUser {
 export declare class AuthService {
     private readonly configService;
     private readonly prisma;
+    private readonly logger;
     private jwksUrl;
     private issuer;
     private jwks;

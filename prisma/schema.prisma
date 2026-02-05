@@ -37,6 +37,8 @@ model Tenant {
 
 model User {
   id          String             @id @default(cuid())
+  /// Supabase Auth user id (auth.users.id, UUID). Links JWT sub to this row; not the same as id (cuid).
+  authUserId  String?            @unique
   email       String             @unique
   name        String?
   createdAt   DateTime           @default(now())
@@ -48,6 +50,7 @@ model User {
   memberships TenantMembership[]
 
   @@index([email])
+  @@index([authUserId])
   @@map("users")
 }
 
