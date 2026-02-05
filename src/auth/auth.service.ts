@@ -76,6 +76,10 @@ export class AuthService {
       return null;
     }
 
+    // Temporary debug: Supabase may issue HS256 (legacy) or RS256 (JWKS); HS256 requires SUPABASE_JWT_SECRET
+    console.log('JWT alg:', header.alg);
+
+    // HS256 tokens are verified with symmetric key (verifyTokenLegacy); RS256 uses JWKS
     if (header.alg === 'HS256') {
       return this.verifyTokenLegacy(token);
     }
@@ -146,11 +150,15 @@ export class AuthService {
     }
   }
 
+  /**
+   * Verifies HS256 JWTs using SUPABASE_JWT_SECRET (symmetric key).
+   * Returns null when SUPABASE_JWT_SECRET is missing or verification fails.
+   */
   private async verifyTokenLegacy(token: string): Promise<AuthUser | null> {
     const jwtSecret = this.configService.get<string>('SUPABASE_JWT_SECRET');
 
     if (!jwtSecret) {
-      return null; // No fallback available
+      return null; // Required for HS256; caller should surface "SUPABASE_JWT_SECRET missing" when applicable
     }
 
     try {

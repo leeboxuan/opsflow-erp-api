@@ -83,6 +83,7 @@ let AuthService = class AuthService {
         catch {
             return null;
         }
+        console.log('JWT alg:', header.alg);
         if (header.alg === 'HS256') {
             return this.verifyTokenLegacy(token);
         }

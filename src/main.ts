@@ -3,7 +3,19 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
+// Fail fast if Supabase JWT secret is missing (required for HS256 token verification after login)
+function validateAuthEnv(): void {
+  const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+  if (!jwtSecret || jwtSecret.trim() === '') {
+    throw new Error(
+      'SUPABASE_JWT_SECRET missing – cannot verify Supabase access token. Set it in env (Supabase Project Settings → API → JWT Secret).',
+    );
+  }
+}
+
 async function bootstrap() {
+  validateAuthEnv();
+
   const app = await NestFactory.create(AppModule);
   
   // Set global prefix for all routes

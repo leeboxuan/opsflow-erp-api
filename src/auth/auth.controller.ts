@@ -66,6 +66,13 @@ export class AuthController {
     const authUser = await this.authService.verifyToken(accessToken);
 
     if (!authUser) {
+      // Fail with explicit message when HS256 is used but JWT secret is missing (common cause of 401 after signIn)
+      const jwtSecret = this.configService.get<string>('SUPABASE_JWT_SECRET');
+      if (!jwtSecret) {
+        throw new UnauthorizedException(
+          'SUPABASE_JWT_SECRET missing – cannot verify Supabase access token',
+        );
+      }
       throw new UnauthorizedException('Unable to map authenticated user');
     }
 

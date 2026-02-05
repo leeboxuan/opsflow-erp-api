@@ -52,6 +52,10 @@ let AuthController = class AuthController {
         const expiresAt = data.session.expires_at ?? 0;
         const authUser = await this.authService.verifyToken(accessToken);
         if (!authUser) {
+            const jwtSecret = this.configService.get('SUPABASE_JWT_SECRET');
+            if (!jwtSecret) {
+                throw new common_1.UnauthorizedException('SUPABASE_JWT_SECRET missing – cannot verify Supabase access token');
+            }
             throw new common_1.UnauthorizedException('Unable to map authenticated user');
         }
         const membership = await this.prisma.tenantMembership.findFirst({

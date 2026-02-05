@@ -4,7 +4,14 @@ const core_1 = require("@nestjs/core");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const app_module_1 = require("./app.module");
+function validateAuthEnv() {
+    const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+    if (!jwtSecret || jwtSecret.trim() === '') {
+        throw new Error('SUPABASE_JWT_SECRET missing – cannot verify Supabase access token. Set it in env (Supabase Project Settings → API → JWT Secret).');
+    }
+}
 async function bootstrap() {
+    validateAuthEnv();
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.setGlobalPrefix('api');
     app.useGlobalPipes(new common_1.ValidationPipe({
