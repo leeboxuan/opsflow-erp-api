@@ -855,7 +855,7 @@ export class InventoryService {
       });
 
       // Update cached counts for affected items
-      const itemIds = [...new Set(units.map((u) => u.inventoryItemId))];
+      const itemIds = [...new Set(units.map((u) => u.inventoryItemId))] as string[];
       for (const itemId of itemIds) {
         await this.updateAvailableQty(tenantId, itemId, tx);
       }
@@ -905,7 +905,7 @@ export class InventoryService {
       });
 
       // Update cached counts
-      const itemIds = [...new Set(units.map((u) => u.inventoryItemId))];
+      const itemIds = [...new Set(units.map((u) => u.inventoryItemId))] as string[];
       for (const itemId of itemIds) {
         await this.updateAvailableQty(tenantId, itemId, tx);
       }
@@ -953,7 +953,7 @@ export class InventoryService {
       });
 
       // Update cached counts
-      const itemIds = [...new Set(units.map((u) => u.inventoryItemId))];
+      const itemIds = [...new Set(units.map((u) => u.inventoryItemId))] as string[];
       for (const itemId of itemIds) {
         await this.updateAvailableQty(tenantId, itemId, tx);
       }
