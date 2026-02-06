@@ -173,19 +173,16 @@ export class InventoryService {
         sku: true,
         name: true,
         reference: true,
-        unit: true,
         availableQty: true,
       },
       orderBy: { sku: 'asc' },
     });
-
 
     return items.map((item) => ({
       id: item.id,
       sku: item.sku,
       name: item.name,
       reference: item.reference,
-      unit: item.unit,
       availableQty: item.availableQty ?? 0,
     }));
   }

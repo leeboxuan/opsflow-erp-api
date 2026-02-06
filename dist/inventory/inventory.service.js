@@ -124,7 +124,6 @@ let InventoryService = class InventoryService {
                 sku: true,
                 name: true,
                 reference: true,
-                unit: true,
                 availableQty: true,
             },
             orderBy: { sku: 'asc' },
@@ -134,7 +133,6 @@ let InventoryService = class InventoryService {
             sku: item.sku,
             name: item.name,
             reference: item.reference,
-            unit: item.unit,
             availableQty: item.availableQty ?? 0,
         }));
     }

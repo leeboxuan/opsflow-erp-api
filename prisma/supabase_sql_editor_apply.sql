@@ -13,12 +13,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "users_authUserId_key" ON "users"("authUserId"
 CREATE INDEX IF NOT EXISTS "users_authUserId_idx" ON "users"("authUserId");
 
 -- -----------------------------------------------------------------------------
--- 2) inventory_items.unit (display label e.g. "pcs", "box")
--- -----------------------------------------------------------------------------
-ALTER TABLE "inventory_items" ADD COLUMN IF NOT EXISTS "unit" TEXT;
-
--- -----------------------------------------------------------------------------
--- 3) inventory_batch_items table (Stock In: batch + item + qty)
+-- 2) inventory_batch_items table (Stock In: batch + item + qty)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS "inventory_batch_items" (
     "id" TEXT NOT NULL,
@@ -43,7 +38,7 @@ ALTER TABLE "inventory_batch_items" ADD CONSTRAINT "inventory_batch_items_batchI
 ALTER TABLE "inventory_batch_items" ADD CONSTRAINT "inventory_batch_items_inventoryItemId_fkey" FOREIGN KEY ("inventoryItemId") REFERENCES "inventory_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- -----------------------------------------------------------------------------
--- 4) InventoryBatchStatus: add 'Draft' if your enum only has Open/Completed/Cancelled
+-- 3) InventoryBatchStatus: add 'Draft' if your enum only has Open/Completed/Cancelled
 -- (Only run if you get "invalid input value for enum" for Draft.)
 -- -----------------------------------------------------------------------------
 -- ALTER TYPE "InventoryBatchStatus" ADD VALUE IF NOT EXISTS 'Draft';
@@ -51,7 +46,7 @@ ALTER TABLE "inventory_batch_items" ADD CONSTRAINT "inventory_batch_items_invent
 -- ALTER TABLE "inventory_batches" ALTER COLUMN "status" SET DEFAULT 'Draft';
 
 -- -----------------------------------------------------------------------------
--- 5) Stops: allow multiple stops per order (drop unique, keep index)
+-- 4) Stops: allow multiple stops per order (drop unique, keep index)
 -- -----------------------------------------------------------------------------
 DROP INDEX IF EXISTS "stops_tenantId_transportOrderId_key";
 CREATE INDEX IF NOT EXISTS "stops_tenantId_transportOrderId_idx" ON "stops"("tenantId", "transportOrderId");
